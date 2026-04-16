@@ -1,0 +1,10 @@
+# Release artifacts from build-all.sh
+out/
+
+# Regression test artifacts — only the canonical baseline PNGs should be tracked.
+# *.diff.png   — pixel-difference image from `magick compare`
+# *.actual.png — actual capture when it diverges from baseline
+# *.png.new    — proposed new baseline (review, then rename to .png to commit)
+**/baseline/*.diff.png
+**/baseline/*.actual.png
+**/baseline/*.png.new

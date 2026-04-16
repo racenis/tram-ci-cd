@@ -1,0 +1,7 @@
+# Tests for this integration. Format: <name>|<args>
+# One capture per line. Args are passed to the built binary.
+# Baseline PNG for each test lives at baseline/<name>.png.
+# If this file is missing, the runner assumes a single test named "default" with no args.
+early|--tick=150 --out=early.png
+default|--tick=300 --out=default.png
+late|--tick=3000 --out=late.png

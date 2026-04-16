@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  # Nightly run catches breakage from sibling repos (tram-sdk, tram-template,
+  # tram-applets) that push without triggering this repo's CI.
+  schedule:
+    - cron: '0 6 * * *'
+
+jobs:
+  integrations:
+    runs-on: ubuntu-latest
+    steps:
+      # The integrations container expects sibling repos under /projects:
+      #     /projects/tram-ci-cd
+      #     /projects/tram-sdk
+      #     /projects/tram-template
+      #     /projects/tram-applets
+      # actions/checkout defaults to $GITHUB_WORKSPACE, so each repo goes
+      # into its own subdir and the whole workspace gets mounted as /projects.
+      - name: Check out tram-ci-cd
+        uses: actions/checkout@v4
+        with:
+          path: tram-ci-cd
+
+      - name: Check out tram-sdk
+        uses: actions/checkout@v4
+        with:
+          repository: racenis/tram-sdk
+          path: tram-sdk
+
+      - name: Check out tram-template
+        uses: actions/checkout@v4
+        with:
+          repository: racenis/tram-template
+          path: tram-template
+
+      - name: Check out tram-applets
+        uses: actions/checkout@v4
+        with:
+          repository: racenis/tram-applets
+          path: tram-applets
+
+      - name: Build integrations image
+        working-directory: tram-ci-cd
+        run: docker build -t tram-ci-cd-integrations -f integrations/Dockerfile .
+
+      # /projects stays read-only (source of truth for the CI). The second mount
+      # overrides the baked-in /opt/integrations so run-regression.sh's writes
+      # (*.diff.png, *.actual.png on mismatch, *.png.new when no baseline)
+      # land on the host side where upload-artifact@v4 can pick them up.
+      - name: Run CI suite (compile + unit tests + matrix + regression)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/projects:ro \
+            -v "${{ github.workspace }}/tram-ci-cd/integrations":/opt/integrations:rw \
+            tram-ci-cd-integrations
+
+      - name: Upload regression artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-diffs
+          path: |
+            tram-ci-cd/integrations/*/baseline/*.diff.png
+            tram-ci-cd/integrations/*/baseline/*.actual.png
+            tram-ci-cd/integrations/*/baseline/*.png.new
+          if-no-files-found: ignore
