@@ -7,19 +7,25 @@ if [ -r /etc/os-release ]; then . /etc/os-release; fi
 
 case "${ID:-}" in
     fedora)
+        # Editor builds wxWidgets from source via FetchContent; wxGTK on Linux
+        # needs GTK3 + image/compression libs. No wx-*-devel packages needed.
         dnf install -y \
-            gcc gcc-c++ make cmake git which rsync \
+            gcc gcc-c++ make cmake ninja-build git which rsync \
             bullet-devel lua-devel glfw-devel openal-soft-devel \
             mesa-libGL-devel mesa-libGLU-devel SDL2-devel \
+            gtk3-devel libpng-devel libjpeg-turbo-devel libtiff-devel \
+            zlib-devel expat-devel \
             fpc fpc-src lazarus
         ;;
     debian|ubuntu)
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
         apt-get install -y --no-install-recommends \
-            build-essential cmake git ca-certificates rsync \
+            build-essential cmake ninja-build git ca-certificates rsync \
             libbullet-dev liblua5.4-dev libglfw3-dev libopenal-dev \
             libgl1-mesa-dev libglu1-mesa-dev libsdl2-dev \
+            libgtk-3-dev libpng-dev libjpeg-dev libtiff-dev \
+            zlib1g-dev libexpat1-dev \
             fpc lazarus
         ;;
     *)

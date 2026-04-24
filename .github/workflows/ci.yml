@@ -8,8 +8,10 @@ on:
   workflow_dispatch:
   # Nightly run catches breakage from sibling repos (tram-sdk, tram-template,
   # tram-applets) that push without triggering this repo's CI.
-  schedule:
-    - cron: '0 6 * * *'
+  # Disabled while the pipeline is knowingly broken — re-enable once it's
+  # green again so the nightly inbox isn't just red-email spam.
+  #schedule:
+  #  - cron: '0 6 * * *'
 
 jobs:
   integrations:

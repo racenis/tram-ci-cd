@@ -9,18 +9,20 @@ case "${ID:-}" in
     fedora)
         # Bullet/Lua/GLFW/OpenAL/SDL2 static libs come from
         # tram-sdk/libraries/binaries/win32/ — Fedora doesn't package all the
-        # mingw32-* variants. Just install the toolchain + rsync.
+        # mingw32-* variants. wxWidgets is built from source by the editor's
+        # CMakeLists (wxMSW + vendored submodules).
         dnf install -y \
-            git make cmake which rsync \
+            git make cmake ninja-build which rsync \
             mingw32-gcc mingw32-gcc-c++ \
             mingw32-winpthreads mingw32-winpthreads-static \
+            mingw32-mesa-libGL \
             fpc fpc-src lazarus
         ;;
     debian|ubuntu)
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
         apt-get install -y --no-install-recommends \
-            git make cmake ca-certificates rsync \
+            git make cmake ninja-build ca-certificates rsync \
             mingw-w64 g++-mingw-w64-i686 \
             fpc lazarus
         echo "NOTE: Debian does not package mingw cross builds of bullet/lua/glfw/openal."

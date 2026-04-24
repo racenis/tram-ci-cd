@@ -18,7 +18,17 @@ build_and_run() {
     echo "===================================="
     echo "  [$target] docker build"
     echo "===================================="
-    docker build -t "$tag" "$HERE/$target"
+    # win64/win32 COPY cmake/toolchain-mingw-w64.cmake; their Dockerfiles
+    # therefore need the tram-ci-cd/ root as build context. linux/ is
+    # self-contained and builds with its own directory as context.
+    case "$target" in
+        win64|win32)
+            docker build -t "$tag" -f "$HERE/$target/Dockerfile" "$HERE"
+            ;;
+        *)
+            docker build -t "$tag" "$HERE/$target"
+            ;;
+    esac
     echo "===================================="
     echo "  [$target] docker run"
     echo "===================================="

@@ -19,7 +19,7 @@ echo "==> WORK_DIR=$WORK_DIR"
 
 # Copy sources into a writable workdir so builds don't touch the source tree.
 # Makefiles drop .o / .a / binaries alongside sources, so an RO source mount breaks them.
-for repo in tram-sdk tram-template tram-applets; do
+for repo in tram-sdk tram-template tram-applets tram-world-editor; do
     if [ -d "$TRAM_ROOT/$repo" ]; then
         # Exclude lib/ wholesale — Lazarus/FPC drops .ppu/.o/.compiled there, and
         # stale contents from prior host-side builds make lazbuild think units are
@@ -81,6 +81,25 @@ build_template() {
     cp template "$OUT_DIR/"
 }
 run_step "template" build_template
+
+# --- tram-world-editor (tedit) ---
+# Uses its own CMakeLists.txt; point it at the same tram-sdk checkout we
+# already rsynced so it doesn't try to clone a fresh one via FetchContent.
+# wxWidgets is fetched + built from source by that CMakeLists (see the
+# TRAMWAY_USE_SYSTEM_WXWIDGETS option); the resulting wx .so's get copied
+# next to tedit so the CI output directory is self-contained.
+build_editor() {
+    cd "$WORK_DIR/tram-world-editor"
+    cmake -S . -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DTRAM_SDK_DIR="$WORK_DIR/tram-sdk"
+    cmake --build build -j"$JOBS"
+    cp build/tedit "$OUT_DIR/"
+    # -a preserves the libwx_*.so → libwx_*.so.X.Y.Z symlink chain.
+    find build/_deps/wxwidgets_source-build -maxdepth 2 -name 'libwx_*.so*' \
+        -exec cp -a {} "$OUT_DIR/" \; 2>/dev/null || true
+}
+run_step "tram-world-editor" build_editor
 
 # --- Lazarus applets ---
 build_applet() {

@@ -17,7 +17,7 @@ echo "==> WORK_DIR=$WORK_DIR"
 echo "==> HOST=$HOST"
 
 # Copy sources into writable workdir — the source mount is read-only.
-for repo in tram-sdk tram-template tram-applets; do
+for repo in tram-sdk tram-template tram-applets tram-world-editor; do
     if [ -d "$TRAM_ROOT/$repo" ]; then
         rsync -a --delete \
               --exclude='.git' --exclude='build*' \
@@ -54,6 +54,25 @@ cp build-win64/libtramsdk.a "$OUT_DIR/"
 # This is a placeholder — expect breakage until the build rules are abstracted.
 echo "==> devtools/template win64 build NOT YET IMPLEMENTED — see TODO"
 echo "    (vendored libraries need windows binaries in libraries/binaries/win64/)"
+
+# --- tram-world-editor (tedit.exe) ---
+# Uses the editor's own toolchain file (same one devs use locally). We pass
+# TRAM_SDK_DIR so FetchContent isn't triggered for the SDK — those sources
+# are already rsynced into $WORK_DIR. wxWidgets IS fetched fresh and built
+# from source; the editor's CMakeLists does a POST_BUILD copy of every wx*.dll
+# next to tedit.exe, so we just glob the whole build dir for *.dll.
+if [ -d "$WORK_DIR/tram-world-editor" ]; then
+    echo "==> building tedit.exe + wx DLLs (win64)"
+    cd "$WORK_DIR/tram-world-editor"
+    cmake -B build-win64 -S . -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_TOOLCHAIN_FILE="${EDITOR_TOOLCHAIN:-/opt/cmake/toolchain-mingw-w64.cmake}" \
+        -DTRAM_SDK_DIR="$WORK_DIR/tram-sdk"
+    cmake --build build-win64 -j"$JOBS"
+    cp build-win64/tedit.exe "$OUT_DIR/"
+    # Every wx*.dll the POST_BUILD step staged next to the binary.
+    cp build-win64/*.dll "$OUT_DIR/" 2>/dev/null || true
+fi
 
 # --- Lazarus applets cross-compile to win64 ---
 # lazbuild --os=win64 --cpu=x86_64 --ws=win32

@@ -20,7 +20,7 @@ echo "==> WORK_DIR=$WORK_DIR"
 echo "==> HOST=$HOST (XP-compat)"
 
 # Copy sources into writable workdir — the source mount is read-only.
-for repo in tram-sdk tram-template tram-applets; do
+for repo in tram-sdk tram-template tram-applets tram-world-editor; do
     if [ -d "$TRAM_ROOT/$repo" ]; then
         rsync -a --delete \
               --exclude='.git' --exclude='build*' \
@@ -56,6 +56,25 @@ cp build-win32/libtramsdk.a "$OUT_DIR/"
 # TODO: devtools/template Makefiles are Linux-first. Cross-compile needs the
 # build rules abstracted (see win64/build.sh — same story).
 echo "==> devtools/template win32 build NOT YET IMPLEMENTED — see win64/build.sh TODO"
+
+# --- tram-world-editor (tedit.exe, 32-bit) ---
+# Reuses the editor's MinGW toolchain file with MINGW_TRIPLE overridden to the
+# 32-bit triple. We skip the XP-compat flags the SDK build above uses —
+# wxWidgets 3.2 dropped XP support, and the editor has always been a modern
+# Win32 app. wxWidgets is built from source; the POST_BUILD step in the
+# editor's CMakeLists stages every wx*.dll next to tedit.exe.
+if [ -d "$WORK_DIR/tram-world-editor" ]; then
+    echo "==> building tedit.exe + wx DLLs (win32)"
+    cd "$WORK_DIR/tram-world-editor"
+    cmake -B build-win32 -S . -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_TOOLCHAIN_FILE="${EDITOR_TOOLCHAIN:-/opt/cmake/toolchain-mingw-w64.cmake}" \
+        -DMINGW_TRIPLE=i686-w64-mingw32 \
+        -DTRAM_SDK_DIR="$WORK_DIR/tram-sdk"
+    cmake --build build-win32 -j"$JOBS"
+    cp build-win32/tedit.exe "$OUT_DIR/"
+    cp build-win32/*.dll "$OUT_DIR/" 2>/dev/null || true
+fi
 
 # --- Lazarus applets: win32, XP-compatible ---
 # FPC supports XP via -WP5.01 (min subsystem version) and older RTL still works.
