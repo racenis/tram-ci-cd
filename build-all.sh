@@ -10,7 +10,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECTS_DIR="${PROJECTS_DIR:-$(cd "$HERE/.." && pwd)}"
 OUT_ROOT="${OUT_ROOT:-$HERE/out}"
-mkdir -p "$OUT_ROOT"/{linux,win64,win32,installer}
+mkdir -p "$OUT_ROOT"/{linux-fedora,linux-debian,win64,win32,installer}
 
 build_and_run() {
     local target="$1"
@@ -18,11 +18,12 @@ build_and_run() {
     echo "===================================="
     echo "  [$target] docker build"
     echo "===================================="
-    # win64/win32 COPY cmake/toolchain-mingw-w64.cmake; their Dockerfiles
-    # therefore need the tram-ci-cd/ root as build context. linux/ is
-    # self-contained and builds with its own directory as context.
+    # win64/win32 COPY cmake/toolchain-mingw-w64.cmake and linux-fedora/
+    # + linux-debian/ COPY from shared linux/; they all need tram-ci-cd/ as
+    # the docker build context. integrations/ and installer/ already use
+    # parent context via their existing -f invocations further down.
     case "$target" in
-        win64|win32)
+        win64|win32|linux-fedora|linux-debian)
             docker build -t "$tag" -f "$HERE/$target/Dockerfile" "$HERE"
             ;;
         *)
@@ -53,7 +54,8 @@ if [ "${SKIP_INTEGRATIONS:-0}" != "1" ]; then
     docker run --rm -v "$PROJECTS_DIR":/projects:ro tram-ci-cd-integrations
 fi
 
-build_and_run linux
+build_and_run linux-fedora
+build_and_run linux-debian
 build_and_run win64
 build_and_run win32
 
