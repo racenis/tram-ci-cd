@@ -48,12 +48,45 @@ cmake -B build-win64 -S . -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN"
 cmake --build build-win64 -j"$JOBS"
 cp build-win64/libtramsdk.a "$OUT_DIR/"
 
-# --- Devtools and template ---
-# TODO: devtool and template Makefiles are Linux-first (/usr/include/bullet etc).
-# For now we invoke g++ directly against vendored libraries/ headers.
-# This is a placeholder — expect breakage until the build rules are abstracted.
-echo "==> devtools/template win64 build NOT YET IMPLEMENTED — see TODO"
-echo "    (vendored libraries need windows binaries in libraries/binaries/win64/)"
+# --- Template (tram-template/CMakeLists.txt — fetches bullet/glfw/openal/lua) ---
+# The template's own CMake picks up our locally-rsynced SDK via TRAM_SDK_DIR
+# so the cross-build is against matching SDK sources. All the native deps
+# come from FetchContent and cross-compile cleanly with the MinGW toolchain.
+if [ -d "$WORK_DIR/tram-template" ]; then
+    echo "==> building template.exe (win64)"
+    cd "$WORK_DIR/tram-template"
+    cmake -B build-win64 -S . -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
+        -DTRAM_SDK_DIR="$WORK_DIR/tram-sdk"
+    cmake --build build-win64 -j"$JOBS"
+    cp build-win64/template.exe "$OUT_DIR/"
+fi
+
+# --- Devtools (tbsp, tmap, trad) ---
+# Each devtool is just main.cpp + engine_libs.cpp compiled against the SDK's
+# src/ and libraries/ headers — no external link deps. The checked-in Makefiles
+# call native `g++` with `.exe` output (they were authored on Windows), so we
+# skip them and invoke the mingw compiler directly with the same flags.
+# -static -static-libstdc++ so the .exe runs without needing mingw DLLs alongside.
+build_devtool_win64() {
+    local tool="$1"
+    local dir="$WORK_DIR/tram-sdk/devtools/$tool"
+    [ -d "$dir" ] || { echo "    skip: $dir missing"; return 0; }
+    cd "$dir"
+    "${HOST}-g++" -std=c++20 -O2 -c engine_libs.cpp -o engine_libs.o \
+        -I../../src/ -I../../libraries/
+    "${HOST}-g++" -std=c++20 -O2 main.cpp engine_libs.o -o "${tool}.exe" \
+        -static -static-libstdc++ \
+        -I../../src/ -I../../libraries/
+    cp "${tool}.exe" "$OUT_DIR/"
+}
+for tool in tbsp tmap trad; do
+    echo "==> building devtool $tool (win64)"
+    if ! build_devtool_win64 "$tool"; then
+        echo "WARN: devtool $tool failed to cross-build — continuing" >&2
+    fi
+done
 
 # --- tram-world-editor (tedit.exe) ---
 # Uses the editor's own toolchain file (same one devs use locally). We pass
@@ -75,9 +108,10 @@ if [ -d "$WORK_DIR/tram-world-editor" ]; then
 fi
 
 # --- Lazarus applets cross-compile to win64 ---
-# lazbuild --os=win64 --cpu=x86_64 --ws=win32
-# Requires LCL cross-built for win32 widgetset. fpcupdeluxe is the normal way.
-# TODO: bake LCL cross-build into deps.sh once the Fedora lazarus package is mapped out.
+# Wired up via lazbuild's `--os=win64 --cpu=x86_64 --ws=win32` mode. The FPC
+# win64 cross-RTL/packages and Lazarus cross-built LCL/lazutils/freetype were
+# baked into the image at build time (see Dockerfile + build-fpc-pkgs.sh +
+# build-lazarus-cross.sh), so the lazbuild invocation here just consumes them.
 if command -v lazbuild >/dev/null && [ -d "$WORK_DIR/tram-applets" ]; then
     # Register .lpk packages so .lpi projects that depend on them resolve.
     # Same as the Linux build — without this, applets fail with "Broken dependency".

@@ -16,7 +16,6 @@ case "${ID:-}" in
             git make cmake ninja-build which rsync \
             mingw64-gcc mingw64-gcc-c++ \
             mingw64-winpthreads mingw64-winpthreads-static \
-            mingw64-mesa-libGL \
             fpc fpc-src lazarus
         ;;
     debian|ubuntu)

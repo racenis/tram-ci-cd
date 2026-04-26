@@ -75,10 +75,18 @@ for tool in tbsp tmap trad; do
 done
 
 # --- Template ---
+# Uses tram-template's CMakeLists.txt (FetchContents bullet/glfw/openal/lua so
+# we don't depend on host package naming — Debian's `liblua5.4.so` vs Fedora's
+# `liblua.so` used to break the Makefile path here). TRAM_SDK_DIR points the
+# template at the SDK sources we already rsynced rather than the pinned tag in
+# its CMakeLists.
 build_template() {
     cd "$WORK_DIR/tram-template"
-    make -j"$JOBS"
-    cp template "$OUT_DIR/"
+    cmake -S . -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DTRAM_SDK_DIR="$WORK_DIR/tram-sdk"
+    cmake --build build -j"$JOBS"
+    cp build/template "$OUT_DIR/"
 }
 run_step "template" build_template
 

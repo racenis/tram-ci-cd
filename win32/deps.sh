@@ -11,12 +11,14 @@ case "${ID:-}" in
         # tram-sdk/libraries/binaries/win32/ — Fedora doesn't package all the
         # mingw32-* variants. wxWidgets is built from source by the editor's
         # CMakeLists (wxMSW + vendored submodules).
+        # fpc-cross-i386 provides ppcross386, the i386 cross compiler we need to
+        # build the FPC win32 RTL/packages from x86_64 host (Fedora's host fpc
+        # ships only ppcx64).
         dnf install -y \
             git make cmake ninja-build which rsync \
             mingw32-gcc mingw32-gcc-c++ \
             mingw32-winpthreads mingw32-winpthreads-static \
-            mingw32-mesa-libGL \
-            fpc fpc-src lazarus
+            fpc fpc-src fpc-cross-i386 lazarus
         ;;
     debian|ubuntu)
         export DEBIAN_FRONTEND=noninteractive

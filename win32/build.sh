@@ -53,9 +53,42 @@ cmake -B build-win32 -S . -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN"
 cmake --build build-win32 -j"$JOBS"
 cp build-win32/libtramsdk.a "$OUT_DIR/"
 
-# TODO: devtools/template Makefiles are Linux-first. Cross-compile needs the
-# build rules abstracted (see win64/build.sh — same story).
-echo "==> devtools/template win32 build NOT YET IMPLEMENTED — see win64/build.sh TODO"
+# --- Template (tram-template/CMakeLists.txt — fetches bullet/glfw/openal/lua) ---
+# Reuses the same approach as win64; we deliberately NOT pass the XP_CFLAGS
+# here because template's fetched deps (bullet, openal-soft) don't target XP
+# cleanly and the goal of a 32-bit template is broader user reach, not XP.
+if [ -d "$WORK_DIR/tram-template" ]; then
+    echo "==> building template.exe (win32)"
+    cd "$WORK_DIR/tram-template"
+    cmake -B build-win32 -S . -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" \
+        -DTRAM_SDK_DIR="$WORK_DIR/tram-sdk"
+    cmake --build build-win32 -j"$JOBS"
+    cp build-win32/template.exe "$OUT_DIR/"
+fi
+
+# --- Devtools (tbsp, tmap, trad) ---
+# Header-only deps; mingw-g++ -static gets us a self-contained .exe.
+# Same approach as win64/build.sh.
+build_devtool_win32() {
+    local tool="$1"
+    local dir="$WORK_DIR/tram-sdk/devtools/$tool"
+    [ -d "$dir" ] || { echo "    skip: $dir missing"; return 0; }
+    cd "$dir"
+    "${HOST}-g++" -std=c++20 -O2 -c engine_libs.cpp -o engine_libs.o \
+        -I../../src/ -I../../libraries/
+    "${HOST}-g++" -std=c++20 -O2 main.cpp engine_libs.o -o "${tool}.exe" \
+        -static -static-libstdc++ \
+        -I../../src/ -I../../libraries/
+    cp "${tool}.exe" "$OUT_DIR/"
+}
+for tool in tbsp tmap trad; do
+    echo "==> building devtool $tool (win32)"
+    if ! build_devtool_win32 "$tool"; then
+        echo "WARN: devtool $tool failed to cross-build — continuing" >&2
+    fi
+done
 
 # --- tram-world-editor (tedit.exe, 32-bit) ---
 # Reuses the editor's MinGW toolchain file with MINGW_TRIPLE overridden to the
@@ -76,10 +109,12 @@ if [ -d "$WORK_DIR/tram-world-editor" ]; then
     cp build-win32/*.dll "$OUT_DIR/" 2>/dev/null || true
 fi
 
-# --- Lazarus applets: win32, XP-compatible ---
-# FPC supports XP via -WP5.01 (min subsystem version) and older RTL still works.
-# Blocked on FPC win32 cross-RTL — Fedora's fpc package is host-only.
-# TODO: bake win32 cross-RTL (via fpcupdeluxe or prebuilt tarball) into deps.sh.
+# --- Lazarus applets: win32 ---
+# FPC i386-win32 cross-RTL/packages and Lazarus cross-built LCL are baked into
+# the image at build time (see Dockerfile + win64/build-fpc-pkgs.sh +
+# win64/build-lazarus-cross.sh, parameterized by env). Per-applet XP subsystem
+# version (-WP5.01) is not plumbed through lazbuild here yet — applets ship as
+# regular Win32 binaries; the SDK binaries above carry the XP linker flags.
 if command -v lazbuild >/dev/null && [ -d "$WORK_DIR/tram-applets" ]; then
     # Register .lpk packages so .lpi projects that depend on them resolve.
     echo "==> registering Lazarus packages"

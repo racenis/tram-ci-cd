@@ -59,20 +59,24 @@ build_and_run linux-debian
 build_and_run win64
 build_and_run win32
 
-# Installer needs the win64 artifacts + sources mounted.
+# Installer needs the win artifacts + sources mounted. Run once per target so
+# we ship a separate installer for win64 and win32.
 echo "===================================="
 echo "  [installer] docker build"
 echo "===================================="
 docker build -t tram-ci-cd-installer "$HERE/installer"
-echo "===================================="
-echo "  [installer] docker run"
-echo "===================================="
-docker run --rm \
-    -v "$PROJECTS_DIR":/projects:ro \
-    -v "$OUT_ROOT/win64":/win-build:ro \
-    -v "$OUT_ROOT/installer":/out \
-    -e WIN_BUILD_DIR=/win-build \
-    tram-ci-cd-installer
+for arch in win64 win32; do
+    echo "===================================="
+    echo "  [installer:$arch] docker run"
+    echo "===================================="
+    mkdir -p "$OUT_ROOT/installer/$arch"
+    docker run --rm \
+        -v "$PROJECTS_DIR":/projects:ro \
+        -v "$OUT_ROOT/$arch":/win-build:ro \
+        -v "$OUT_ROOT/installer/$arch":/out \
+        -e WIN_BUILD_DIR=/win-build \
+        tram-ci-cd-installer
+done
 
 echo "==> release artifacts in $OUT_ROOT"
 ls -la "$OUT_ROOT"/*

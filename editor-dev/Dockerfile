@@ -32,7 +32,6 @@ RUN dnf install -y --setopt=install_weak_deps=False \
         mingw64-binutils \
         mingw64-winpthreads-static \
         mingw64-cmake \
-        mingw64-mesa-libGL \
         # --- misc ---
         git \
         file \
